@@ -188,6 +188,10 @@ class BankAccount{              //Account class, includes username, password, ch
             return password;
         }
 
+        void setPassword(string newPass){
+            password = newPass;
+        }
+
         BankAccount* getNext(){
             return next;
         }
@@ -422,6 +426,59 @@ class Bank{
             cout << "\nAccount " << username << " created successfully!\n";
         }
 
+        void updateAccount(){               //Simple account update method
+            string username, password, newPass;
+            
+            while(true){                    //Gathers input for account details with an exit option
+                cout << "\nFirst, please login; press X to exit.\n";
+                cout << "\nUsername?\n";
+                getline(cin, username);
+                
+                if(username == "X" || username == "x"){
+                    return;
+                }
+
+                cout << "\nPassword?\n";
+                getline(cin, password);
+
+                if(password == "X" || password == "x"){
+                    return;
+                }
+
+                BankAccount* current = accounts.getHead();
+
+                while(current != nullptr){
+                    if(current -> getUsername() == username){
+                        if(current -> getPassword() == password){
+                            while(true){                    //Gathers input for new password with an exit option
+                                cout << "New password? (minimum 3 characters, X to cancel)\n";
+                                getline(cin, newPass);
+                
+                                if(newPass == "X" || newPass == "x"){
+                                    return;
+                                }
+                
+                                if(newPass.length() < 3){
+                                    cout << "Password must be at least 3 characters long.\n";
+                                    continue;
+                                }
+
+                                break;
+                            }
+
+                            current -> setPassword(newPass);
+                            cout << "Password updated successfully!\n";
+                            return;
+                        }
+                    }
+
+                    current = current -> getNext();
+                }
+
+                cout << "Account info not found.\n";
+            }
+        }
+
         void displayAccounts() const{           //This exists purely for testing purposes, would *never* be part of a finished product -- for an end user, anyway
             accounts.displayAccounts();
         }
@@ -474,7 +531,7 @@ int main(){
     Bank bank;
     
     while(true){                        //The initial menu loop -- Sentinel variables are less memory efficient because these loops exit via return statements
-        cout << "\nWelcome! Please create an account (C), login (L), list accounts (A), or exit (X).\n";
+        cout << "\nWelcome! Please create an account (C), login (L), update account (U), list accounts (A), or exit (X).\n";
         string mainMenuChoice;
         getline(cin, mainMenuChoice);
 
@@ -483,6 +540,9 @@ int main(){
 
         } else if(mainMenuChoice == "L" || mainMenuChoice == "l"){
             bank.login();
+
+        } else if(mainMenuChoice == "U" || mainMenuChoice == "u"){
+            bank.updateAccount();
 
         } else if(mainMenuChoice == "A" || mainMenuChoice == "a"){
             bank.displayAccounts();
