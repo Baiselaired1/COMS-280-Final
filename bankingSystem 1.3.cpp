@@ -118,11 +118,16 @@ class SubAccount{                                           //Class to inherit b
             }
         }
 
-        void withdraw(){                                //Withdraw logic
+        virtual void withdraw() = 0;                    //Withdraw function pure virtual, to be overridden in lower classes because they have different limits
+};
+
+class CheckingAccount : public SubAccount{                 //Checking account class, doesn't need to do anything but inherit
+    public:
+        void withdraw(){                            //Allow down to $20 negative balance
             int withdrawAmount;
             cout << "\nHow much would you like to withdraw? (0 to cancel)\n";
 
-            while(!(cin >> withdrawAmount) || withdrawAmount < 0 || withdrawAmount > balance){
+            while(!(cin >> withdrawAmount) || withdrawAmount < 0 || withdrawAmount > balance + 20){
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Invalid amount. How much would you like to withdraw?\n";
@@ -135,8 +140,6 @@ class SubAccount{                                           //Class to inherit b
         }
 };
 
-class CheckingAccount : public SubAccount{};              //Checking account class, doesn't need to do anything but inherit
-
 class SavingsAccount : public SubAccount{              //Savings account class
     private:
         void savingsInit(){
@@ -147,6 +150,22 @@ class SavingsAccount : public SubAccount{              //Savings account class
     public:
         SavingsAccount() : SubAccount() {           //Extends constructor from SubAccount to provide an initial deposit (not getting rid of this feature)
             savingsInit();
+        }
+
+        void withdraw(){                            //Require minimum $10 balance
+            int withdrawAmount;
+            cout << "\nHow much would you like to withdraw? (0 to cancel)\n";
+
+            while(!(cin >> withdrawAmount) || withdrawAmount < 0 || withdrawAmount > balance - 10){
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid amount. How much would you like to withdraw?\n";
+            }
+
+            if(withdrawAmount > 0){
+                History.addRecord("Withdrawal", balance, -withdrawAmount);
+                balance -= withdrawAmount;
+            }
         }
 };
 
