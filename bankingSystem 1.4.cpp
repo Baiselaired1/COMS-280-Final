@@ -8,22 +8,15 @@
 
 using std::cout, std::cin, std::getline, std::string, std::tuple, std::exception, std::numeric_limits, std::streamsize;         //Namespace directives for simplicity's sake, don't want to use blanket
 
-bool termination = false;
-
 template<typename InputType>                                        //Generic function to handle safe input, returns true if no errors detected, false if errors detected
 bool safeInput(InputType& input, const string& prompt, const string& errorMessage = "Invalid input. Please try again."){
-    if(termination){                                               //If termination is true, return false to indicate failure
-        return false;
-    }
-
     cout << prompt << "\n";
 
     if(!(cin >> input)){
-        if(cin.eof()){                                                 //If input is terminated, clear error flag and ignore input, then return false to indicate failure
+        if(cin.eof()){                                                 //If input is terminated, clear error flag, ignore input, then return false to indicate failure, then clear input buffer
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "\nInput termination detected. Returning to previous menu.\n";
-            termination = true;
+            cout << "\nInput termination detected. Press enter twice to return to previous menu.\n";
             return false;   
         }
 
@@ -66,8 +59,12 @@ void deleteList(NodeType* head) {
     }
 }
 
-void resetTermination(){
-    termination = false;
+void clearAfterSuspend(){                           //Helper function, run to clear stdin after unsuspension
+    if(cin.eof()){
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        while(cin.get() != '\n' && cin.good());                 //Empty loop just discards all characters in stdin until newline
+    }
 }
 
 string stripSpace(string& str){
@@ -172,6 +169,8 @@ class SubAccount{                                           //Class to inherit b
         }
 
         void deposit(){                                 //Deposit logic -- All accounts currently function as debit accounts, too tired to change that right now
+            clearAfterSuspend();
+            
             int depositAmount;
 
             if(!safeInput(depositAmount, "How much would you like to deposit? (0 to cancel)")){
@@ -191,6 +190,8 @@ class SubAccount{                                           //Class to inherit b
 class CheckingAccount : public SubAccount{                 //Checking account class, doesn't need to do anything but inherit
     public:
         void withdraw(){                            //Allow down to $20 negative balance
+            clearAfterSuspend();
+            
             int withdrawAmount;
 
             if(!safeInput(withdrawAmount, "How much would you like to withdraw? (0 to cancel)")){
@@ -218,6 +219,8 @@ class SavingsAccount : public SubAccount{              //Savings account class
         }
 
         void withdraw(){                            //Require minimum $10 balance
+            clearAfterSuspend();
+            
             int withdrawAmount;
 
             if(!safeInput(withdrawAmount, "How much would you like to withdraw? (0 to cancel)")){
@@ -264,11 +267,8 @@ class BankAccount{              //Account class, includes username, password, ch
         }
 
         void bankingFunctions(){                //Bulk of the program stored here
-            resetTermination();
             while(true){
-                if(termination){
-                    return;
-                }
+                clearAfterSuspend();
 
                 cout << "\nWelcome, " << username << "\n";
                 cout << "Checking balance: $" << checking.getBalance() << "\n";
@@ -460,13 +460,10 @@ class Bank{
 
         void createAccount(){                   //Looks repetitive, but this method gathers the info that the other one gets called with
             string username, password;
-            resetTermination();
 
             while(true){                    //Gathers input for username with an exit option. For testing purposes, username/pass are only required to be 3 characters long
-                if(termination){
-                    return;
-                }
-
+                clearAfterSuspend();
+                
                 if(!safeInput(username, "Username? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)")){
                     continue;
                 }
@@ -491,6 +488,8 @@ class Bank{
             }
 
             while(true){                    //Same as above, but for password
+                clearAfterSuspend();
+                
                 if(!safeInput(password, "Password? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)")){
                     continue;
                 }
@@ -513,12 +512,9 @@ class Bank{
 
         void updateAccount(){               //Simple account update method
             string username, password, newPass;
-            resetTermination();
             
             while(true){                    //Gathers input for account details with an exit option
-                if(termination){
-                    return;
-                }
+                clearAfterSuspend();
 
                 cout << "\nFirst, please login; press X to exit.\n";
 
@@ -549,6 +545,8 @@ class Bank{
                     if(current -> getUsername() == username){
                         if(current -> getPassword() == password){
                             while(true){                    //Gathers input for new password with an exit option
+                                clearAfterSuspend();
+
                                 if(!safeInput(newPass, "New password? (minimum 3 characters, maximum 20, X to cancel)")){
                                     continue;
                                 }
@@ -583,13 +581,8 @@ class Bank{
         }
 
         void login(){
-            resetTermination();
 
             while(true){                    //See the loop in main -- Gathers input for account details with an exit option
-                if(termination){
-                    return;
-                }
-
                 string username, password;
                 cout << "\nLogin page; press X to exit.\n";
 
@@ -635,10 +628,12 @@ int main(){
     Bank bank;
     
     while(true){                        //The initial menu loop -- Sentinel variables are less memory efficient because these loops exit via return statements
+        clearAfterSuspend();
+
         cout << "\nWelcome! Please create an account (C), login (L), update account (U), list existing accounts (A), or exit (X).\n";
         string mainMenuChoice;
 
-        if(!safeInput(mainMenuChoice, "Choice?")){
+        if(!safeInput(mainMenuChoice, "Menu choice?")){
             continue;
         }
 
