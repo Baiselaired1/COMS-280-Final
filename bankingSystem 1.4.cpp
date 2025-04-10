@@ -6,25 +6,50 @@
 
 
 
-using std::cout, std::cin, std::getline, std::string, std::tuple, std::exception, std::numeric_limits, std::streamsize;         //Namespace directives for simplicity's sake
+using std::cout, std::cin, std::getline, std::string, std::tuple, std::exception, std::numeric_limits, std::streamsize;         //Namespace directives for simplicity's sake, don't want to use blanket
 
-template<typename TrnsIn>                                     //Generic function to validate transaction input, max value reflecting typical maximum transaction size
-TrnsIn validate(TrnsIn& input, int min = 0, int max = 5000){                            //Bounds are hardcoded to be integers, but the input can be dynamic
-    try{
-        while(!(cin >> input) || input < min || input > max){
-            if(cin.eof()){                                              //End of file/input handling
-                throw std::runtime_error("Unexpected end of input.");
-            }
+bool termination = false;
 
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid amount. Please try again (Max of $" << max << ").\n";
-        }
+template<typename InputType>                                        //Generic function to handle safe input, returns true if no errors detected, false if errors detected
+bool safeInput(InputType& input, const string& prompt, const string& errorMessage = "Invalid input. Please try again."){
+    if(termination){                                               //If termination is true, return false to indicate failure
+        return false;
     }
 
-    catch(const exception& e){                           //Failure handling if, for any reason, the input is terminated unexpectedly
-        cout << "Error in transaction input: " << e.what() << "\n";
-        return 0;
+    cout << prompt << "\n";
+
+    if(!(cin >> input)){
+        if(cin.eof()){                                                 //If input is terminated, clear error flag and ignore input, then return false to indicate failure
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "\nInput termination detected. Returning to previous menu.\n";
+            termination = true;
+            return false;   
+        }
+
+        cout << errorMessage << "\n";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        return false;
+    }
+
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    return true;
+}
+
+template<typename TrnsIn>                                                            //Generic function to validate transaction input, max value reflecting typical maximum transaction size
+TrnsIn validate(TrnsIn& input, int min = 0, int max = 5000){                         //Bounds are hardcoded to be integers, but the input can be dynamic
+    while(true){
+        if(!(safeInput(input, "Enter amount (0 to cancel)"))){                      //If input errors detected, return min
+            return min;
+        }
+
+        if(input < min || input > max){                                             //If input is out of bounds, reprompt
+            cout << "Invalid amount. Please try again (Max of $" << max << ").\n";
+            continue;
+        }
+
+        break;                                                                      //If input is valid (no flags), break
     }
 
     return input;
@@ -39,6 +64,10 @@ void deleteList(NodeType* head) {
         delete current;
         current = next;
     }
+}
+
+void resetTermination(){
+    termination = false;
 }
 
 string stripSpace(string& str){
@@ -144,14 +173,16 @@ class SubAccount{                                           //Class to inherit b
 
         void deposit(){                                 //Deposit logic -- All accounts currently function as debit accounts, too tired to change that right now
             int depositAmount;
-            cout << "\nHow much would you like to deposit? (0 to cancel)\n";
 
-            validate(depositAmount);
+            if(!safeInput(depositAmount, "How much would you like to deposit? (0 to cancel)")){
+                return;
 
-            if(depositAmount > 0){
-                History.addRecord("Deposit", balance, depositAmount);
-                balance += depositAmount;
+            } else {
+                validate(depositAmount);
             }
+
+            History.addRecord("Deposit", balance, depositAmount);
+            balance += depositAmount;
         }
 
         virtual void withdraw() = 0;                    //Withdraw function pure virtual, to be overridden in lower classes because they have different limits
@@ -161,14 +192,16 @@ class CheckingAccount : public SubAccount{                 //Checking account cl
     public:
         void withdraw(){                            //Allow down to $20 negative balance
             int withdrawAmount;
-            cout << "\nHow much would you like to withdraw? (0 to cancel)\n";
 
-            validate(withdrawAmount, 0, balance + 20);
+            if(!safeInput(withdrawAmount, "How much would you like to withdraw? (0 to cancel)")){
+                return;
 
-            if(withdrawAmount > 0){
-                History.addRecord("Withdrawal", balance, -withdrawAmount);
-                balance -= withdrawAmount;
+            } else {
+                validate(withdrawAmount, 0, balance + 20);
             }
+
+            History.addRecord("Withdrawal", balance, -withdrawAmount);
+            balance -= withdrawAmount;
         }
 };
 
@@ -186,14 +219,16 @@ class SavingsAccount : public SubAccount{              //Savings account class
 
         void withdraw(){                            //Require minimum $10 balance
             int withdrawAmount;
-            cout << "\nHow much would you like to withdraw? (0 to cancel)\n";
 
-            validate(withdrawAmount, 0, balance - 10);
+            if(!safeInput(withdrawAmount, "How much would you like to withdraw? (0 to cancel)")){
+                return;
 
-            if(withdrawAmount > 0){
-                History.addRecord("Withdrawal", balance, -withdrawAmount);
-                balance -= withdrawAmount;
+            } else {
+                validate(withdrawAmount, 0, balance - 10);
             }
+
+            History.addRecord("Withdrawal", balance, -withdrawAmount);
+            balance -= withdrawAmount;
         }
 };
 
@@ -229,19 +264,28 @@ class BankAccount{              //Account class, includes username, password, ch
         }
 
         void bankingFunctions(){                //Bulk of the program stored here
+            resetTermination();
             while(true){
+                if(termination){
+                    return;
+                }
+
                 cout << "\nWelcome, " << username << "\n";
                 cout << "Checking balance: $" << checking.getBalance() << "\n";
                 cout << "Savings balance: $" << savings.getBalance() << "\n";
-                cout << "Would you like to deposit (D), withdraw (W), view history (H), or logout (X)?\n";             //Gather user choice, then gather account choice before calling deposit/withdraw methods
 
                 string actionChoice;
-                getline(cin, actionChoice);
+                
+                if(!safeInput(actionChoice, "Would you like to deposit (D), withdraw (W), view history (H), or logout (X)?\n")){
+                    continue;
+                }
 
                 if(actionChoice == "D" || actionChoice == "d"){
-                    cout << "\nWhich account would you like to deposit to? (C for checking, S for savings, X to cancel)\n";
                     string accountChoice;
-                    getline(cin, accountChoice);
+
+                    if(!safeInput(accountChoice, "Which account would you like to deposit to? (C for checking, S for savings, X to cancel)")){
+                        continue;
+                    }
 
                     if(accountChoice == "C" || accountChoice == "c"){
                         checking.deposit();
@@ -258,9 +302,11 @@ class BankAccount{              //Account class, includes username, password, ch
                     }
 
                 } else if(actionChoice == "W" || actionChoice == "w"){              //Same as deposit entirely, just will call withdraw instead -- which logically translates to a negative deposit
-                    cout << "\nWhich account would you like to withdraw from? (C for checking, S for savings, X to cancel)\n";
                     string accountChoice;
-                    getline(cin, accountChoice);
+
+                    if(!safeInput(accountChoice, "Which account would you like to withdraw from? (C for checking, S for savings, X to cancel)")){
+                        continue;
+                    }
 
                     if(accountChoice == "C" || accountChoice == "c"){
                         checking.withdraw();
@@ -277,9 +323,12 @@ class BankAccount{              //Account class, includes username, password, ch
                     }
 
                 } else if(actionChoice == "H" || actionChoice == "h"){              //Display history per account, see TransactionHistory class
-                    cout << "\nWhich account would you like to view history for? (C for checking, S for savings, X to cancel)\n";
                     string accountChoice;
-                    getline(cin, accountChoice);
+
+                    if(!safeInput(accountChoice, "Which account would you like to view history for? (C for checking, S for savings, X to cancel)")){
+                        continue;
+                    }
+
                     if(accountChoice == "C" || accountChoice == "c"){
                         checking.showHistory();
 
@@ -411,10 +460,17 @@ class Bank{
 
         void createAccount(){                   //Looks repetitive, but this method gathers the info that the other one gets called with
             string username, password;
+            resetTermination();
 
             while(true){                    //Gathers input for username with an exit option. For testing purposes, username/pass are only required to be 3 characters long
-                cout << "Username? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)\n";
-                getline(cin, username);
+                if(termination){
+                    return;
+                }
+
+                if(!safeInput(username, "Username? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)")){
+                    continue;
+                }
+
                 username = stripSpace(username);
 
                 if(username == "X" || username == "x"){
@@ -435,8 +491,9 @@ class Bank{
             }
 
             while(true){                    //Same as above, but for password
-                cout << "Password? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)\n";
-                getline(cin, password);
+                if(!safeInput(password, "Password? (minimum 3 characters, maximum 20, X to cancel, spaces allowed)")){
+                    continue;
+                }
 
                 if(password == "X" || password == "x"){
                     return;
@@ -456,18 +513,31 @@ class Bank{
 
         void updateAccount(){               //Simple account update method
             string username, password, newPass;
+            resetTermination();
             
             while(true){                    //Gathers input for account details with an exit option
+                if(termination){
+                    return;
+                }
+
                 cout << "\nFirst, please login; press X to exit.\n";
-                cout << "\nUsername?\n";
-                getline(cin, username);
-                
+
+                if(!safeInput(username, "Username? (minimum 3 characters, maximum 20, X to cancel)")){
+                    continue;
+                }
+
                 if(username == "X" || username == "x"){
                     return;
                 }
 
-                cout << "\nPassword?\n";
-                getline(cin, password);
+                if(username.length() < 3 || username.length() > 20){
+                    cout << "Username must be at least 3 characters long or at most 20 characters long.\n";
+                    continue;
+                }
+
+                if(!safeInput(password, "Password? (minimum 3 characters, maximum 20, X to cancel)")){
+                    continue;
+                }
 
                 if(password == "X" || password == "x"){
                     return;
@@ -479,9 +549,10 @@ class Bank{
                     if(current -> getUsername() == username){
                         if(current -> getPassword() == password){
                             while(true){                    //Gathers input for new password with an exit option
-                                cout << "New password? (minimum 3 characters, maximum 20, X to cancel)\n";
-                                getline(cin, newPass);
-                
+                                if(!safeInput(newPass, "New password? (minimum 3 characters, maximum 20, X to cancel)")){
+                                    continue;
+                                }
+
                                 if(newPass == "X" || newPass == "x"){
                                     return;
                                 }
@@ -512,18 +583,27 @@ class Bank{
         }
 
         void login(){
+            resetTermination();
+
             while(true){                    //See the loop in main -- Gathers input for account details with an exit option
+                if(termination){
+                    return;
+                }
+
                 string username, password;
                 cout << "\nLogin page; press X to exit.\n";
-                cout << "\nUsername?\n";
-                getline(cin, username);
+
+                if(!safeInput(username, "Username?")){
+                    continue;
+                }
                 
                 if(username == "X" || username == "x"){
                     return;
                 }
 
-                cout << "\nPassword?\n";
-                getline(cin, password);
+                if(!safeInput(password, "Password?")){
+                    continue;
+                }
 
                 if(password == "X" || password == "x"){
                     return;
@@ -557,7 +637,10 @@ int main(){
     while(true){                        //The initial menu loop -- Sentinel variables are less memory efficient because these loops exit via return statements
         cout << "\nWelcome! Please create an account (C), login (L), update account (U), list existing accounts (A), or exit (X).\n";
         string mainMenuChoice;
-        getline(cin, mainMenuChoice);
+
+        if(!safeInput(mainMenuChoice, "Choice?")){
+            continue;
+        }
 
         if(mainMenuChoice == "C" || mainMenuChoice == "c"){
             bank.createAccount();
